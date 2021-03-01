@@ -7,50 +7,20 @@
   <title>Document</title>
 </head>
 <body>
+  <div id="app" >{{name}}</div>
   <script>
-    let data = {
-      name: "jiejie",
-      hobbies: [1,3,4]
-    }
+    
+  
+    let currentObserver = null;
+    let id = 0;
 
-    observe(data);
-    data.name = "lili";
-    data.hobbies[0] = 5;
-    
-
-    function observe(obj) {
-      if(typeof obj !== 'object' || !obj) return;
-    
-      for(let key in obj) {
-        let val = obj[key];
-        Object.defineProperty(obj, key, {
-          configurable: true,
-          enumerable: true,
-          get() {
-            alert(val);
-            return val;
-          },
-          set(newVal) {
-            alert(`changed from ${val} to ${newVal}`);
-            val = newVal;
-          }
-        })
-        if(typeof val === 'object') observe(val);
-      }
-    }
-    
     class Subject {
-      constructor(){
+      constructor() {
+        this.id = id++;
         this.observers = [];
       }
-      addObserver(observer){
+      addObserver(observer) {
         this.observers.push(observer);
-      }
-      removeObserver(observer) {
-        let index = this.observers.indexOf(observer);
-        if(index > -1) {
-          this.observers.splice(index,1);
-        }
       }
       notify() {
         this.observers.forEach(val => {
@@ -59,29 +29,112 @@
       }
     }
 
-    class Observer{
-      constructor(name) {
-        this.name = name;
-      }
-      update() {
-        console.log(this.name + 'updated!!!');
-      }
-      subscriTo(subject) {
-        subject.addObserver(this);
+
+    function observe(obj) {
+      if(!obj || typeof obj !== 'object') return ;
+      
+      for(let key in obj) {
+        let val = obj[key];
+        let subject = new Subject();
+        Object.defineProperty(obj, key, {
+          configurable: true,
+          enumerable: true,
+
+          get() {
+            if(currentObserver) {
+              currentObserver.on(subject);
+            }
+            return val;
+          },
+
+          set(newVal) {
+            val = newVal;
+            subject.notify();
+          }
+          
+        })
+        if(typeof val === 'object') observe(val);
       }
     }
-      
-    
-    var subject = new Subject();
-    
-    var ob1 = new Observer('jiejie');
-    var ob2 = new Observer('binbin');
+    class Observer{
+      constructor(vm,key,cb) {
+        this.subjects = {}
+        this.vm = vm;
+        this.key = key;
+        this.cb = cb;
+        this.val = this.getVal();
+      }
 
-    ob1.subscriTo(subject);
-    ob2.subscriTo(subject);
+      getVal() {
+        currentObserver = this;
+        let value = this.vm.$data[this.key];
+        currentObserver = null;
+        return value
+      }
+      on(subject) {
+        //如果订阅过就不需要重复订阅了
+        if(!this.subjects[subject.id]) {
+          subject.addObserver(this);
+          this.subjects[subject.id] = subject
+        }
+      }
 
-    subject.notify()
+      update() {
+        let oldVal = this.val;
+        let newVal = this.getVal();
 
+        if(oldVal != newVal) {
+          this.val = newVal;
+          this.cb(newVal, oldVal);
+        }
+      }
+    }
+    class mvvm {
+      constructor(opts) {
+        this.init(opts);
+        observe(this.$data);
+        this.compile();
+      }
+
+      init(opts) {
+        this.$el = document.querySelector(opts.el);
+        this.$data = opts.data;
+      }
+
+      compile() {
+        this.traverse(this.$el)
+      }
+
+      traverse(node) {
+        if(node.nodeType === 1) {
+          node.childNodes.forEach(child => {
+            this.traverse(child);
+          });
+        } else if(node.nodeType === 3) {
+          this.renderText(node)
+        }
+      }
+      renderText(node){
+        let reg = /{{(.+?)}}/g
+        let match
+        while(match = reg.exec(node.nodeValue)){
+          let raw = match[0]
+          let key = match[1].trim()
+          node.nodeValue = node.nodeValue.replace(raw, this.$data[key])
+          new Observer(this, key, function(val, oldVal){
+            node.nodeValue = node.nodeValue.replace(oldVal, val)
+          })
+        }    
+      }
+    }
+
+
+    let vm = new mvvm({
+      el: '#app',
+      data: {
+        name: 'jiejie'
+      }
+    })
   </script>
 </body>
 </html>
