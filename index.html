@@ -7,10 +7,9 @@
   <title>Document</title>
 </head>
 <body>
-  <div id="app" >{{name}}</div>
+  <div id="app" >{{name}}---{{hobbies}}</div>
   <script>
     
-  
     let currentObserver = null;
     let id = 0;
 
@@ -23,23 +22,19 @@
         this.observers.push(observer);
       }
       notify() {
-        this.observers.forEach(val => {
-          val.update();
+        this.observers.forEach(observer => {
+          observer.update();
         })
       }
     }
 
-
     function observe(obj) {
       if(!obj || typeof obj !== 'object') return ;
-      
+
       for(let key in obj) {
         let val = obj[key];
         let subject = new Subject();
         Object.defineProperty(obj, key, {
-          configurable: true,
-          enumerable: true,
-
           get() {
             if(currentObserver) {
               currentObserver.on(subject);
@@ -51,14 +46,16 @@
             val = newVal;
             subject.notify();
           }
-          
         })
-        if(typeof val === 'object') observe(val);
+        if(typeof val === 'object') {
+          observe(val);
+        }
       }
     }
+
     class Observer{
-      constructor(vm,key,cb) {
-        this.subjects = {}
+      constructor(vm, key, cb) {
+        this.subjects = {};
         this.vm = vm;
         this.key = key;
         this.cb = cb;
@@ -67,33 +64,35 @@
 
       getVal() {
         currentObserver = this;
-        let value = this.vm.$data[this.key];
-        currentObserver = null;
-        return value
-      }
-      on(subject) {
-        //如果订阅过就不需要重复订阅了
-        if(!this.subjects[subject.id]) {
-          subject.addObserver(this);
-          this.subjects[subject.id] = subject
-        }
+        let val = this.vm.$data[this.key];
+        currentObserver = null
+        return val;
       }
 
       update() {
         let oldVal = this.val;
         let newVal = this.getVal();
+        if(oldVal !== newVal) {
+          this.cb.call(this,newVal,oldVal);
+        }
+        this.val = newVal;
+      }
 
-        if(oldVal != newVal) {
-          this.val = newVal;
-          this.cb(newVal, oldVal);
+      on(subject) {
+
+        if(!this.subjects[subject.id]) {
+          subject.addObserver(this);
+          this.subjects[subject.id] = subject;
         }
       }
+      
     }
-    class mvvm {
+
+    class mvvm{
       constructor(opts) {
         this.init(opts);
         observe(this.$data);
-        this.compile();
+        this.compile(this.$el)
       }
 
       init(opts) {
@@ -101,20 +100,17 @@
         this.$data = opts.data;
       }
 
-      compile() {
-        this.traverse(this.$el)
-      }
-
-      traverse(node) {
+      compile(node) {
         if(node.nodeType === 1) {
           node.childNodes.forEach(child => {
-            this.traverse(child);
-          });
+            this.compile(child);
+          })
         } else if(node.nodeType === 3) {
-          this.renderText(node)
+          this.renderText(node);
         }
       }
-      renderText(node){
+
+      renderText(node) {
         let reg = /{{(.+?)}}/g
         let match
         while(match = reg.exec(node.nodeValue)){
@@ -124,17 +120,20 @@
           new Observer(this, key, function(val, oldVal){
             node.nodeValue = node.nodeValue.replace(oldVal, val)
           })
-        }    
+        }
       }
+
+
     }
-
-
+    
     let vm = new mvvm({
       el: '#app',
       data: {
-        name: 'jiejie'
+        name: 'jiejie',
+        hobbies: [1,2,3]
       }
     })
+
   </script>
 </body>
 </html>
