@@ -39,6 +39,47 @@
       }
     }
     
+    function Subject() {
+      this.observers = [];
+    }
+
+    Subject.prototype.addObserver = function(observer){
+      this.observers.push(observer);
+    }
+
+    Subject.prototype.removeObserver = function(observer) {
+      let index = this.observers.indexOf(observer);
+      if(index > -1) {
+        this.observers.splice(index,1);
+      }
+    }
+
+    Subject.prototype.notify = function() {
+      this.observers.forEach(val => {
+        val.update();
+      })
+    }
+
+    function Observer(name) {
+      this.name = name;
+      this.update = function() {
+        console.log(this.name + 'updated!!!');
+      }
+    }
+    Observer.prototype.subscriTo = function(subject) {
+      subject.addObserver(this);
+    }
+
+    var subject = new Subject();
+    
+    var ob1 = new Observer('jiejie');
+    var ob2 = new Observer('binbin');
+
+    ob1.subscriTo(subject);
+    ob2.subscriTo(subject);
+
+    subject.notify()
+
   </script>
 </body>
 </html>
